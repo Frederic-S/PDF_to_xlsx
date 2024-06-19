@@ -34,13 +34,14 @@ class PDFUploader(tk.Tk):
         self.btn_send.pack(pady=10)
 
         self.assistant = client.beta.assistants.create(
-            name="PDF data extraktor.",instructions="You scan the given PDFs. Extract the Mathematical exercises and save them in LaTeX formation in a .xlsx file."            tools=[{"type": "file_search"}],)
+            name="PDF data extraktor.",instructions="You scan the given PDFs. Extract the Mathematical exercises and save them in LaTeX formation in a .xlsx file."
+            ,tools=[{"type": "file_search"}], model="gpt-3.5-turbo")
         self.store = client.beta.vector_stores.create(name="PDF Scan")
 
         self.pdf_path = None
 
     def select_pdf(self):
-        self.pdf_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.txt")])
+        self.pdf_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
         if self.pdf_path:
             self.label_pdf.config(text=f"Selected: {self.pdf_path}")
 
