@@ -1,10 +1,12 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
-import openai
+from openai import OpenAI
+from dotenv import load_dotenv
 import os
 
+load_dotenv()
 # Make sure to replace 'YOUR_OPENAI_API_KEY' with your actual OpenAI API key.
-openai.api_key = 'YOUR_OPENAI_API_KEY'
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 class PDFUploader(tk.Tk):
     def __init__(self):
@@ -31,10 +33,14 @@ class PDFUploader(tk.Tk):
         self.btn_send = tk.Button(self, text="Send to API", command=self.send_to_api)
         self.btn_send.pack(pady=10)
 
+        self.assistant = client.beta.assistants.create(
+            name="PDF data extraktor.",instructions="You scan the given PDFs. Extract the Mathematical exercises and save them in LaTeX formation in a .xlsx file."            tools=[{"type": "file_search"}],)
+        self.store = client.beta.vector_stores.create(name="PDF Scan")
+
         self.pdf_path = None
 
     def select_pdf(self):
-        self.pdf_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
+        self.pdf_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.txt")])
         if self.pdf_path:
             self.label_pdf.config(text=f"Selected: {self.pdf_path}")
 
@@ -50,28 +56,20 @@ class PDFUploader(tk.Tk):
 
         try:
             with open(self.pdf_path, "rb") as pdf_file:
-                response = openai.File.create(
-                    file=pdf_file,
-                    purpose='fine-tune'
+                file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+                self.store.id,
+                files=pdf_file,
                 )
+                print(file_batch.status)
 
-                if 'id' in response:
-                    fine_tune_response = openai.FineTune.create(
-                        training_file=response['id'],
-                        model='gpt-3.5-turbo',
-                        n_epochs=1,
-                        prompt=fine_tuning_info
-                    )
-
-                    if 'id' in fine_tune_response:
-                        messagebox.showinfo("Success", "File uploaded and fine-tuning started successfully")
-                    else:
-                        messagebox.showerror("Error", "Failed to start fine-tuning")
-                else:
-                    messagebox.showerror("Error", "Failed to upload file")
 
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
+        self.assistant = client.beta.assistants.update(
+            assistant_id=self.assistant.id,
+            tool_resources={"file_search": {"vector_store_ids": [self.store.id]}},
+        )
 
 if __name__ == "__main__":
     app = PDFUploader()
